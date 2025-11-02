@@ -1,4 +1,4 @@
-distutils-pytest=0.2.1
+distutils-pytest==0.2.1
 wheel==0.45.1
 setuptools==80.9.0
 fastapi==0.104.1
