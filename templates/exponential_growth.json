@@ -1,0 +1,45 @@
+{
+  "name": "Exponential Growth Model",
+  "description": "Simple exponential growth model with a stock and a flow",
+  "elements": [
+    {
+      "id": "population",
+      "type": "stock",
+      "name": "Population",
+      "initial": 100.0,
+      "equation": "growth_rate"
+    },
+    {
+      "id": "growth_rate",
+      "type": "flow",
+      "name": "Growth Rate",
+      "equation": "population * growth_fraction"
+    },
+    {
+      "id": "growth_fraction",
+      "type": "parameter",
+      "name": "Growth Fraction",
+      "value": 0.05
+    }
+  ],
+  "links": [
+    {
+      "id": "link1",
+      "source": "population",
+      "target": "growth_rate"
+    },
+    {
+      "id": "link2",
+      "source": "growth_fraction",
+      "target": "growth_rate"
+    }
+  ],
+  "config": {
+    "start_time": 0.0,
+    "end_time": 100.0,
+    "time_step": 1.0,
+    "method": "euler",
+    "verbose": false
+  }
+}
+

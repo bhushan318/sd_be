@@ -1,0 +1,74 @@
+{
+  "name": "Simple Feedback Loop",
+  "description": "Basic feedback loop with stock, inflow, and outflow",
+  "elements": [
+    {
+      "id": "stock",
+      "type": "stock",
+      "name": "Stock",
+      "initial": 50.0,
+      "equation": "inflow - outflow"
+    },
+    {
+      "id": "inflow",
+      "type": "flow",
+      "name": "Inflow",
+      "equation": "base_inflow + feedback"
+    },
+    {
+      "id": "outflow",
+      "type": "flow",
+      "name": "Outflow",
+      "equation": "stock * outflow_fraction"
+    },
+    {
+      "id": "feedback",
+      "type": "variable",
+      "name": "Feedback",
+      "equation": "stock * feedback_strength"
+    },
+    {
+      "id": "base_inflow",
+      "type": "parameter",
+      "name": "Base Inflow",
+      "value": 10.0
+    },
+    {
+      "id": "outflow_fraction",
+      "type": "parameter",
+      "name": "Outflow Fraction",
+      "value": 0.1
+    },
+    {
+      "id": "feedback_strength",
+      "type": "parameter",
+      "name": "Feedback Strength",
+      "value": 0.05
+    }
+  ],
+  "links": [
+    {
+      "id": "link1",
+      "source": "stock",
+      "target": "outflow"
+    },
+    {
+      "id": "link2",
+      "source": "stock",
+      "target": "feedback"
+    },
+    {
+      "id": "link3",
+      "source": "feedback",
+      "target": "inflow"
+    }
+  ],
+  "config": {
+    "start_time": 0.0,
+    "end_time": 100.0,
+    "time_step": 1.0,
+    "method": "euler",
+    "verbose": false
+  }
+}
+

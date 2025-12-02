@@ -1,0 +1,108 @@
+{
+  "name": "Predator-Prey Model",
+  "description": "Lotka-Volterra predator-prey dynamics model",
+  "elements": [
+    {
+      "id": "prey",
+      "type": "stock",
+      "name": "Prey Population",
+      "initial": 100.0,
+      "equation": "prey_birth_rate - prey_death_rate"
+    },
+    {
+      "id": "predator",
+      "type": "stock",
+      "name": "Predator Population",
+      "initial": 20.0,
+      "equation": "predator_birth_rate - predator_death_rate"
+    },
+    {
+      "id": "prey_birth_rate",
+      "type": "flow",
+      "name": "Prey Birth Rate",
+      "equation": "prey * prey_birth_fraction"
+    },
+    {
+      "id": "prey_death_rate",
+      "type": "flow",
+      "name": "Prey Death Rate",
+      "equation": "prey * predator * predation_rate"
+    },
+    {
+      "id": "predator_birth_rate",
+      "type": "flow",
+      "name": "Predator Birth Rate",
+      "equation": "predator * prey * conversion_efficiency"
+    },
+    {
+      "id": "predator_death_rate",
+      "type": "flow",
+      "name": "Predator Death Rate",
+      "equation": "predator * predator_death_fraction"
+    },
+    {
+      "id": "prey_birth_fraction",
+      "type": "parameter",
+      "name": "Prey Birth Fraction",
+      "value": 0.1
+    },
+    {
+      "id": "predation_rate",
+      "type": "parameter",
+      "name": "Predation Rate",
+      "value": 0.01
+    },
+    {
+      "id": "conversion_efficiency",
+      "type": "parameter",
+      "name": "Conversion Efficiency",
+      "value": 0.005
+    },
+    {
+      "id": "predator_death_fraction",
+      "type": "parameter",
+      "name": "Predator Death Fraction",
+      "value": 0.05
+    }
+  ],
+  "links": [
+    {
+      "id": "link1",
+      "source": "prey",
+      "target": "prey_birth_rate"
+    },
+    {
+      "id": "link2",
+      "source": "prey",
+      "target": "prey_death_rate"
+    },
+    {
+      "id": "link3",
+      "source": "predator",
+      "target": "prey_death_rate"
+    },
+    {
+      "id": "link4",
+      "source": "predator",
+      "target": "predator_birth_rate"
+    },
+    {
+      "id": "link5",
+      "source": "prey",
+      "target": "predator_birth_rate"
+    },
+    {
+      "id": "link6",
+      "source": "predator",
+      "target": "predator_death_rate"
+    }
+  ],
+  "config": {
+    "start_time": 0.0,
+    "end_time": 200.0,
+    "time_step": 0.5,
+    "method": "rk4",
+    "verbose": false
+  }
+}
+

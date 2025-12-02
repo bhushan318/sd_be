@@ -15,13 +15,13 @@ def test_health():
     try:
         response = requests.get(f"{BASE_URL}/health")
         if response.status_code == 200:
-            print("✓ Health check passed")
+            print("Health check passed")
             return True
         else:
-            print(f"✗ Health check failed: {response.status_code}")
+            print(f"Health check failed: {response.status_code}")
             return False
     except Exception as e:
-        print(f"✗ Health check failed: {e}")
+        print(f"Health check failed: {e}")
         return False
 
 def test_simple_simulation():
@@ -87,19 +87,19 @@ def test_simple_simulation():
         if response.status_code == 200:
             result = response.json()
             if result["success"]:
-                print("✓ Simulation succeeded")
+                print("Simulation succeeded")
                 print(f"  Initial population: {result['results']['pop'][0]:.2f}")
                 print(f"  Final population: {result['results']['pop'][-1]:.2f}")
                 print(f"  Time points: {len(result['time'])}")
                 return True
             else:
-                print(f"✗ Simulation failed: {result.get('error', 'Unknown error')}")
+                print(f"Simulation failed: {result.get('error', 'Unknown error')}")
                 return False
         else:
-            print(f"✗ HTTP error: {response.status_code}")
+            print(f"HTTP error: {response.status_code}")
             return False
     except Exception as e:
-        print(f"✗ Simulation test failed: {e}")
+        print(f"Simulation test failed: {e}")
         return False
 
 def test_validation():
@@ -143,20 +143,20 @@ def test_validation():
         if response.status_code == 200:
             result = response.json()
             if result.get("valid"):
-                print("✓ Validation passed")
+                print("Validation passed")
                 print(f"  Stocks: {result.get('stocks')}")
                 print(f"  Flows: {result.get('flows')}")
                 print(f"  Parameters: {result.get('parameters')}")
                 print(f"  Variables: {result.get('variables')}")
                 return True
             else:
-                print(f"✗ Validation failed: {result.get('message')}")
+                print(f"Validation failed: {result.get('message')}")
                 return False
         else:
-            print(f"✗ HTTP error: {response.status_code}")
+            print(f"HTTP error: {response.status_code}")
             return False
     except Exception as e:
-        print(f"✗ Validation test failed: {e}")
+        print(f"Validation test failed: {e}")
         return False
 
 def test_equation_features():
@@ -207,16 +207,16 @@ def test_equation_features():
         if response.status_code == 200:
             result = response.json()
             if result["success"]:
-                print("✓ Advanced equations work (sqrt, division, subtraction)")
+                print("Advanced equations work (sqrt, division, subtraction)")
                 return True
             else:
-                print(f"✗ Advanced equation test failed: {result.get('error')}")
+                print(f"Advanced equation test failed: {result.get('error')}")
                 return False
         else:
-            print(f"✗ HTTP error: {response.status_code}")
+            print(f"HTTP error: {response.status_code}")
             return False
     except Exception as e:
-        print(f"✗ Advanced equation test failed: {e}")
+        print(f"Advanced equation test failed: {e}")
         return False
 
 def main():
@@ -245,10 +245,10 @@ def main():
     print("=" * 60)
     
     if tests_passed == tests_total:
-        print("\n🎉 All tests passed! Backend is working correctly.")
+        print("\nAll tests passed! Backend is working correctly.")
         print("You can now use the frontend React application.")
     else:
-        print("\n⚠️  Some tests failed. Please check:")
+        print("\n Some tests failed. Please check:")
         print("  1. Backend is running (python main.py)")
         print("  2. Backend is on http://localhost:8000")
         print("  3. All dependencies are installed (pip install -r requirements.txt)")
