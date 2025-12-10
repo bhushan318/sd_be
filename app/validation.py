@@ -209,6 +209,8 @@ def validate_elements(elements: List[Element]) -> List[ValidationError]:
             errors.extend(_validate_parameter(element))
         elif element.type in ("flow", "variable"):
             errors.extend(_validate_flow_or_variable(element))
+        elif element.type == "event":
+            errors.extend(_validate_event(element))
 
     return errors
 
@@ -290,6 +292,156 @@ def _validate_flow_or_variable(element: Element) -> List[ValidationError]:
             )
         )
 
+    return errors
+
+
+def _validate_event(element: Element) -> List[ValidationError]:
+    """Validate event element"""
+    errors = []
+    
+    # Events should not have initial, value, or equation
+    if element.initial is not None and element.initial != 0.0:
+        errors.append(
+            ValidationError(
+                code="event_has_initial",
+                message=f"Event '{element.name}' should not have an initial value",
+                element_id=element.id,
+                field="initial",
+                suggestion="Remove the 'initial' field from event elements",
+            )
+        )
+    
+    if element.value is not None:
+        errors.append(
+            ValidationError(
+                code="event_has_value",
+                message=f"Event '{element.name}' should not have a value field",
+                element_id=element.id,
+                field="value",
+                suggestion="Remove the 'value' field from event elements",
+            )
+        )
+    
+    if element.equation and element.equation.strip():
+        errors.append(
+            ValidationError(
+                code="event_has_equation",
+                message=f"Event '{element.name}' should not have an equation field",
+                element_id=element.id,
+                field="equation",
+                suggestion="Remove the 'equation' field from event elements. Use 'action' instead.",
+            )
+        )
+    
+    # Validate trigger_type
+    valid_trigger_types = {"timeout", "rate", "condition"}
+    if not element.trigger_type:
+        errors.append(
+            ValidationError(
+                code="missing_event_trigger_type",
+                message=f"Event '{element.name}' requires a trigger_type",
+                element_id=element.id,
+                field="trigger_type",
+                suggestion=f"Set trigger_type to one of: {', '.join(sorted(valid_trigger_types))}",
+            )
+        )
+    elif element.trigger_type not in valid_trigger_types:
+        errors.append(
+            ValidationError(
+                code="invalid_event_trigger_type",
+                message=f"Event '{element.name}' has invalid trigger_type '{element.trigger_type}'. Must be one of: {', '.join(sorted(valid_trigger_types))}",
+                element_id=element.id,
+                field="trigger_type",
+                suggestion=f"Set trigger_type to one of: {', '.join(sorted(valid_trigger_types))}",
+            )
+        )
+    
+    # Validate trigger
+    if element.trigger is None:
+        errors.append(
+            ValidationError(
+                code="missing_event_trigger",
+                message=f"Event '{element.name}' requires a trigger value",
+                element_id=element.id,
+                field="trigger",
+                suggestion="Provide a trigger value (number for timeout/rate, string for condition)",
+            )
+        )
+    elif element.trigger_type in ("timeout", "rate"):
+        # For timeout and rate, trigger must be a positive number
+        if not isinstance(element.trigger, (int, float)):
+            errors.append(
+                ValidationError(
+                    code="invalid_event_trigger_number",
+                    message=f"Event '{element.name}' with trigger_type '{element.trigger_type}' requires a numeric trigger value, got {type(element.trigger).__name__}",
+                    element_id=element.id,
+                    field="trigger",
+                    suggestion=f"Set trigger to a positive number (e.g., trigger=10.0)",
+                )
+            )
+        elif element.trigger <= 0:
+            errors.append(
+                ValidationError(
+                    code="invalid_event_trigger_positive",
+                    message=f"Event '{element.name}' with trigger_type '{element.trigger_type}' requires a positive trigger value, got {element.trigger}",
+                    element_id=element.id,
+                    field="trigger",
+                    suggestion="Set trigger to a positive number (e.g., trigger=10.0)",
+                )
+            )
+    elif element.trigger_type == "condition":
+        # For condition, trigger must be a non-empty string
+        if not isinstance(element.trigger, str):
+            errors.append(
+                ValidationError(
+                    code="invalid_event_trigger_string",
+                    message=f"Event '{element.name}' with trigger_type 'condition' requires a string trigger value, got {type(element.trigger).__name__}",
+                    element_id=element.id,
+                    field="trigger",
+                    suggestion="Set trigger to a boolean expression string (e.g., trigger='stock >= 100')",
+                )
+            )
+        elif not element.trigger.strip():
+            errors.append(
+                ValidationError(
+                    code="empty_event_trigger_condition",
+                    message=f"Event '{element.name}' with trigger_type 'condition' requires a non-empty trigger string",
+                    element_id=element.id,
+                    field="trigger",
+                    suggestion="Set trigger to a boolean expression string (e.g., trigger='stock >= 100')",
+                )
+            )
+    
+    # Validate action
+    if not element.action or not element.action.strip():
+        errors.append(
+            ValidationError(
+                code="missing_event_action",
+                message=f"Event '{element.name}' has no action code",
+                element_id=element.id,
+                field="action",
+                suggestion="Provide Python code to execute when the event triggers",
+            )
+        )
+    else:
+        # Basic syntax checking for action code
+        try:
+            compile(element.action, f"<event_{element.id}>", "exec")
+        except SyntaxError as e:
+            errors.append(
+                ValidationError(
+                    code="invalid_event_action_syntax",
+                    message=f"Event '{element.name}' has invalid Python syntax in action: {str(e)}",
+                    element_id=element.id,
+                    field="action",
+                    suggestion="Fix the Python syntax error in the action code",
+                )
+            )
+        except Exception:
+            # Other compilation errors are acceptable (e.g., undefined variables)
+            # They will be caught during execution
+            pass
+    
     return errors
 
 

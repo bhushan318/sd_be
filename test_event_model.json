@@ -1,0 +1,66 @@
+{
+  "elements": [
+    {
+      "id": "stock_pop",
+      "elementId": "Population",
+      "type": "stock",
+      "name": "Population",
+      "initial": 100,
+      "equation": "GrowthRate * Population"
+    },
+    {
+      "id": "param_growth",
+      "elementId": "GrowthRate",
+      "type": "parameter",
+      "name": "Growth Rate",
+      "value": 0.05
+    },
+    {
+      "id": "event_reset",
+      "elementId": "ResetEvent",
+      "type": "event",
+      "name": "Population Reset",
+      "trigger_type": "condition",
+      "trigger": "Population >= 1000",
+      "action": "# Reset population when it reaches 1000\nPopulation.value = Population.value * 0.5\nGrowthRate.value = 0.03"
+    },
+    {
+      "id": "event_periodic",
+      "elementId": "PeriodicCheck",
+      "type": "event",
+      "name": "Periodic Check",
+      "trigger_type": "timeout",
+      "trigger": 20,
+      "action": "# Log current state\nif Population.value > 500:\n    GrowthRate.value = GrowthRate.value * 0.9"
+    },
+    {
+      "id": "event_random",
+      "elementId": "RandomEvent",
+      "type": "event",
+      "name": "Random Event",
+      "trigger_type": "rate",
+      "trigger": 0.1,
+      "action": "# Random event that slightly reduces growth rate\nGrowthRate.value = GrowthRate.value * 0.95"
+    }
+  ],
+  "links": [
+    {
+      "id": "l1",
+      "source": "param_growth",
+      "target": "stock_pop"
+    },
+    {
+      "id": "l2",
+      "source": "stock_pop",
+      "target": "stock_pop"
+    }
+  ],
+  "config": {
+    "start_time": 0,
+    "end_time": 100,
+    "time_step": 0.5,
+    "method": "euler",
+    "verbose": false
+  }
+}
+

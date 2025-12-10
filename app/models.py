@@ -75,27 +75,35 @@ class LookupTable(BaseModel):
 
 class Element(BaseModel):
     """
-    Represents a model element (stock, flow, parameter, or variable)
+    Represents a model element (stock, flow, parameter, variable, or event)
 
     Attributes:
         id: Unique identifier for the element
-        type: Element type ('stock', 'flow', 'parameter', 'variable')
+        elementId: Optional element identifier (used for event elements)
+        type: Element type ('stock', 'flow', 'parameter', 'variable', 'event')
         name: Human-readable name
         initial: Initial value (required for stocks, optional for parameters)
         equation: Mathematical equation string (required for flows/variables)
         value: Static value (for parameters)
         lookup_table: Optional lookup table for LOOKUP function
+        trigger_type: Event trigger type ('timeout', 'rate', 'condition') - for events only
+        trigger: Event trigger value (number for timeout/rate, string for condition) - for events only
+        action: Python code to execute when event triggers - for events only
     """
 
     id: str
+    elementId: Optional[str] = None
     type: str = Field(
-        ..., description="Element type: 'stock', 'flow', 'parameter', or 'variable'"
+        ..., description="Element type: 'stock', 'flow', 'parameter', 'variable', or 'event'"
     )
     name: str
     initial: Optional[float] = 0.0
     equation: Optional[str] = ""
     value: Optional[float] = None
     lookup_table: Optional[LookupTable] = None
+    trigger_type: Optional[str] = None
+    trigger: Optional[Any] = None  # Can be float (timeout/rate) or str (condition)
+    action: Optional[str] = None
 
     def get_value(self) -> Optional[float]:
         """Get the element's value (for parameters)"""
@@ -106,6 +114,10 @@ class Element(BaseModel):
     def has_equation(self) -> bool:
         """Check if element has a non-empty equation"""
         return bool(self.equation and self.equation.strip())
+    
+    def get_element_id(self) -> str:
+        """Get the element identifier (elementId if present, otherwise id)"""
+        return self.elementId if self.elementId is not None else self.id
 
 
 class Link(BaseModel):

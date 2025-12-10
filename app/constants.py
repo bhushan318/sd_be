@@ -91,7 +91,7 @@ SAFE_AST_OPERATORS = {
 # Element Types
 # ============================================================================
 
-VALID_ELEMENT_TYPES = {"stock", "flow", "parameter", "variable"}
+VALID_ELEMENT_TYPES = {"stock", "flow", "parameter", "variable", "event"}
 
 # ============================================================================
 # Simulation Limits

@@ -491,12 +491,14 @@ def validate_model_endpoint(request: SimulationRequest):
             flows = [e for e in request.elements if e.type == "flow"]
             parameters = [e for e in request.elements if e.type == "parameter"]
             variables = [e for e in request.elements if e.type == "variable"]
+            events = [e for e in request.elements if e.type == "event"]
 
             summary = {
                 "stocks": len(stocks),
                 "flows": len(flows),
                 "parameters": len(parameters),
                 "variables": len(variables),
+                "events": len(events),
                 "links": len(request.links),
             }
 

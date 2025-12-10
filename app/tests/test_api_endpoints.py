@@ -1173,3 +1173,126 @@ def test_calibrate_missing_data():
 
     response = client.post("/calibrate", json=request_data)
     assert response.status_code == 400
+
+
+def test_simulate_with_events():
+    """Test simulation endpoint with events"""
+    request_data = {
+        "elements": [
+            {
+                "id": "pop",
+                "elementId": "Population",
+                "type": "stock",
+                "name": "Population",
+                "initial": 100.0,
+                "equation": "growth"
+            },
+            {
+                "id": "growth",
+                "type": "flow",
+                "name": "Growth",
+                "equation": "0.1 * Population"
+            },
+            {
+                "id": "reset_event",
+                "elementId": "ResetEvent",
+                "type": "event",
+                "name": "Reset Event",
+                "trigger_type": "timeout",
+                "trigger": 5.0,
+                "action": "Population.value = Population.value * 0.9"
+            }
+        ],
+        "links": [
+            {"id": "l1", "source": "pop", "target": "growth"}
+        ],
+        "config": {
+            "start_time": 0.0,
+            "end_time": 10.0,
+            "time_step": 1.0,
+            "method": "euler",
+            "verbose": False
+        }
+    }
+
+    response = client.post("/simulate", json=request_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "time" in data
+    assert "results" in data
+    assert "pop" in data["results"]
+    assert len(data["results"]["pop"]) > 0
+
+
+def test_validate_with_events():
+    """Test validation endpoint with events"""
+    request_data = {
+        "elements": [
+            {
+                "id": "pop",
+                "type": "stock",
+                "name": "Population",
+                "initial": 100.0,
+                "equation": "growth"
+            },
+            {
+                "id": "growth",
+                "type": "flow",
+                "name": "Growth",
+                "equation": "0.1 * Population"
+            },
+            {
+                "id": "event1",
+                "type": "event",
+                "name": "Event",
+                "trigger_type": "timeout",
+                "trigger": 5.0,
+                "action": "pass"
+            }
+        ],
+        "links": [],
+        "config": {
+            "start_time": 0.0,
+            "end_time": 10.0,
+            "time_step": 1.0,
+            "method": "euler"
+        }
+    }
+
+    response = client.post("/validate", json=request_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["valid"] is True
+    assert "events" in data.get("summary", {})
+    assert data["summary"]["events"] == 1
+
+
+def test_validate_with_invalid_event():
+    """Test validation endpoint with invalid event"""
+    request_data = {
+        "elements": [
+            {
+                "id": "event1",
+                "type": "event",
+                "name": "Event",
+                "trigger_type": "invalid_type",
+                "trigger": 5.0,
+                "action": "pass"
+            }
+        ],
+        "links": [],
+        "config": {
+            "start_time": 0.0,
+            "end_time": 10.0,
+            "time_step": 1.0,
+            "method": "euler"
+        }
+    }
+
+    response = client.post("/validate", json=request_data)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["valid"] is False
+    assert len(data["errors"]) > 0
+    assert any(e["code"] == "invalid_event_trigger_type" for e in data["errors"])
