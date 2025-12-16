@@ -257,6 +257,24 @@ async def simulation_error_handler(request: Request, exc: SimulationError):
     """Handle simulation errors with structured format"""
     logger.error(f"Simulation error: {exc.message}", extra={"code": exc.code})
     error_dict = add_debug_info(exc.to_dict())
+    
+    # For validation errors, use 400 Bad Request instead of 500 Internal Server Error
+    # and ensure errors are properly formatted for frontend display
+    if exc.code == "validation_failed":
+        # Format validation errors for better frontend display
+        if "errors" in error_dict.get("details", {}):
+            errors = error_dict["details"]["errors"]
+            # If errors are just strings, convert them to structured format
+            if errors and isinstance(errors[0], str):
+                error_dict["details"]["errors"] = [
+                    {"message": msg, "code": "validation_error"} for msg in errors
+                ]
+        
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=error_dict,
+        )
+    
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=error_dict,
@@ -434,20 +452,59 @@ async def simulate(request: SimulationRequest):
         logger.info(f"Simulation completed: {len(result['time'])} time points")
 
         # Store result for export
-        result_store = get_result_store()
-        stored_result = SimulationResult(
-            time=result["time"],
-            results=result["results"]
-        )
-        result_id = result_store.store(stored_result)
-        logger.debug(f"Stored simulation result with ID: {result_id}")
+        try:
+            result_store = get_result_store()
+            stored_result = SimulationResult(
+                time=result["time"],
+                results=result["results"]
+            )
+            result_id = result_store.store(stored_result)
+            logger.debug(f"Stored simulation result with ID: {result_id}")
+        except Exception as e:
+            logger.warning(f"Failed to store simulation result: {str(e)}")
+            result_id = None
 
-        return SimulationResponse(
-            success=True,
-            time=result["time"],
-            results=result["results"],
-            result_id=result_id,
-        )
+        # Create response - ensure all values are JSON-serializable
+        try:
+            # Ensure time is a list of floats (not numpy types)
+            time_data = [float(t) for t in result["time"]]
+            
+            # Ensure results are lists of floats (not numpy types)
+            results_data = {}
+            for elem_id, values in result["results"].items():
+                results_data[str(elem_id)] = [float(v) for v in values]
+            
+            response = SimulationResponse(
+                success=True,
+                time=time_data,
+                results=results_data,
+                result_id=result_id,
+            )
+            logger.debug(f"Created simulation response: success={response.success}, time_points={len(response.time)}, elements={len(response.results)}")
+            return response
+        except Exception as e:
+            logger.exception(f"Error creating simulation response: {str(e)}")
+            # Return a basic response even if there's an error
+            try:
+                return SimulationResponse(
+                    success=True,
+                    time=result.get("time", []),
+                    results=result.get("results", {}),
+                    result_id=result_id,
+                )
+            except Exception as e2:
+                logger.exception(f"Error creating fallback response: {str(e2)}")
+                # Last resort: return minimal response
+                return JSONResponse(
+                    status_code=status.HTTP_200_OK,
+                    content={
+                        "success": True,
+                        "time": [],
+                        "results": {},
+                        "result_id": result_id,
+                        "error": "Response serialization error"
+                    }
+                )
 
     except HTTPException:
         # Re-raise HTTP exceptions (timeout, invalid method, etc.)
@@ -506,6 +563,10 @@ def validate_model_endpoint(request: SimulationRequest):
             logger.info(f"Validation passed: {summary}")
         else:
             logger.warning(f"Validation failed: {len(result.errors)} errors found")
+            # Log each error for debugging
+            for i, error in enumerate(result.errors, 1):
+                logger.warning(f"  Error {i}: [{error.code}] {error.message}" + 
+                             (f" (Element: {error.element_id})" if error.element_id else ""))
 
         # Handle warnings if present in result
         warnings = getattr(result, 'warnings', [])

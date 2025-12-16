@@ -758,12 +758,33 @@ class SystemDynamicsModel:
         validation_result = validate_model(self.elements_list, self.links, config)
 
         if not validation_result.valid:
+            # Include full error objects (not just messages) so frontend can display them
+            error_objects = [
+                {
+                    "code": e.code,
+                    "message": e.message,
+                    "element_id": e.element_id,
+                    "field": e.field,
+                    "suggestion": e.suggestion,
+                    "context": e.context,
+                }
+                for e in validation_result.errors
+            ]
             error_messages = [e.message for e in validation_result.errors]
+            
+            # Log all validation errors for debugging
+            if self.verbose or logger.isEnabledFor(logging.WARNING):
+                logger.warning(f"Validation failed with {len(validation_result.errors)} error(s):")
+                for i, error in enumerate(validation_result.errors, 1):
+                    logger.warning(f"  {i}. [{error.code}] {error.message}" + 
+                                 (f" (Element: {error.element_id})" if error.element_id else ""))
+            
             raise SimulationError(
                 code="validation_failed",
-                message="Model validation failed",
+                message=f"Model validation failed: {len(validation_result.errors)} error(s) found. Please fix errors before running.",
                 details={
-                    "errors": error_messages,
+                    "errors": error_objects,  # Full structured error objects
+                    "error_messages": error_messages,  # Also include messages for backward compatibility
                     "error_count": len(validation_result.errors),
                 },
             )
