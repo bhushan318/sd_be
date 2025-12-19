@@ -55,6 +55,10 @@ SAFE_FUNCTION_NAMES = {
     "delay3",
     "smooth",
     "lookup",
+    # Conditional functions
+    "if",
+    "or",
+    "and",
 }
 
 # ============================================================================

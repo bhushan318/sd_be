@@ -8,7 +8,7 @@ from pydantic import BaseModel
 import ast
 
 from app.models import Element, Link, SimulationConfig
-from app.evaluator import extract_variable_references
+from app.evaluator import extract_variable_references, _preprocess_equation, _transform_ast_keyword_calls
 from app.exceptions import ValidationError
 from app.constants import (
     SAFE_FUNCTION_NAMES,
@@ -526,7 +526,11 @@ def validate_links(links: List[Link], elements: List[Element]) -> List[Validatio
 def validate_equation_syntax(equation: str) -> Tuple[bool, Optional[str]]:
     """Validate equation syntax by parsing AST"""
     try:
-        ast.parse(equation, mode="eval")
+        # Preprocess to handle 'if' keyword
+        preprocessed_equation = _preprocess_equation(equation)
+        tree = ast.parse(preprocessed_equation, mode="eval")
+        # Transform AST to rename __IF_FUNC__ back to if
+        _transform_ast_keyword_calls(tree)
         return True, None
     except SyntaxError as e:
         return False, str(e)
@@ -681,7 +685,11 @@ def validate_equations(elements: List[Element]) -> List[ValidationError]:
 
         # Validate AST for safe operations
         try:
-            tree = ast.parse(equation, mode="eval")
+            # Preprocess to handle 'if' keyword
+            preprocessed_equation = _preprocess_equation(equation)
+            tree = ast.parse(preprocessed_equation, mode="eval")
+            # Transform AST to rename __IF_FUNC__ back to if
+            _transform_ast_keyword_calls(tree)
             ast_valid, ast_error = validate_equation_ast(tree)
             if not ast_valid:
                 errors.append(
@@ -800,7 +808,11 @@ def detect_circular_dependencies(
             continue
 
         try:
-            tree = ast.parse(element.equation, mode="eval")
+            # Preprocess to handle 'if' keyword
+            preprocessed_equation = _preprocess_equation(element.equation)
+            tree = ast.parse(preprocessed_equation, mode="eval")
+            # Transform AST to rename __IF_FUNC__ back to if
+            _transform_ast_keyword_calls(tree)
             referenced_vars = extract_variable_references(tree)
 
             for var_name in referenced_vars:
@@ -900,7 +912,11 @@ def validate_stock_flow_relationships(elements: List[Element]) -> List[Validatio
             continue
 
         try:
-            tree = ast.parse(element.equation, mode="eval")
+            # Preprocess to handle 'if' keyword
+            preprocessed_equation = _preprocess_equation(element.equation)
+            tree = ast.parse(preprocessed_equation, mode="eval")
+            # Transform AST to rename __IF_FUNC__ back to if
+            _transform_ast_keyword_calls(tree)
             referenced_vars = extract_variable_references(tree)
 
             # Check if stock references another stock directly

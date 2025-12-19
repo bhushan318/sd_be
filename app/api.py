@@ -22,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 # Local application imports
 from app.config import get_settings
 from app.exceptions import SimulationError, EvaluationError
+from app.evaluator import _preprocess_equation, _transform_ast_keyword_calls
 from app.models import (
     SimulationRequest,
     SimulationResponse,
@@ -190,7 +191,11 @@ def validate_equation_complexity(elements: List[Element]) -> None:
     for element in elements:
         if element.equation and element.equation.strip():
             try:
-                tree = ast.parse(element.equation, mode="eval")
+                # Preprocess to handle 'if' keyword
+                preprocessed_equation = _preprocess_equation(element.equation)
+                tree = ast.parse(preprocessed_equation, mode="eval")
+                # Transform AST to rename __IF_FUNC__ back to if
+                _transform_ast_keyword_calls(tree)
                 
                 # Check AST depth
                 check_ast_depth(tree)

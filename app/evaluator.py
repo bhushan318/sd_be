@@ -8,6 +8,7 @@ import ast
 import operator
 import math
 import logging
+import re
 
 from app.exceptions import EvaluationError, CircularDependencyError
 from app.constants import (
@@ -36,6 +37,76 @@ except ImportError:
     LookupTable = None
 
 logger = logging.getLogger(__name__)
+
+
+# Temporary identifiers used to replace keywords before parsing
+_IF_FUNC_REPLACEMENT = "__IF_FUNC__"
+_OR_FUNC_REPLACEMENT = "__OR_FUNC__"
+_AND_FUNC_REPLACEMENT = "__AND_FUNC__"
+
+
+def _preprocess_equation(equation: str) -> str:
+    """
+    Preprocess equation string to handle reserved keywords used as functions.
+    
+    Replaces 'if(', 'or(', and 'and(' with temporary identifiers to allow parsing
+    these keywords as function calls. Uses regex to ensure we only replace when
+    they're function calls, not part of another identifier.
+    
+    Args:
+        equation: Original equation string
+        
+    Returns:
+        Preprocessed equation string
+    """
+    # Replace 'if(', 'or(', and 'and(' with temporary identifiers
+    # These regex patterns ensure the keywords are standalone identifiers
+    # (preceded by start of string, whitespace, or operators, and followed by opening parenthesis)
+    
+    # Replace 'if('
+    pattern_if = r'(?<![a-zA-Z0-9_])if\s*\('
+    equation = re.sub(pattern_if, f'{_IF_FUNC_REPLACEMENT}(', equation)
+    
+    # Replace 'or('
+    pattern_or = r'(?<![a-zA-Z0-9_])or\s*\('
+    equation = re.sub(pattern_or, f'{_OR_FUNC_REPLACEMENT}(', equation)
+    
+    # Replace 'and('
+    pattern_and = r'(?<![a-zA-Z0-9_])and\s*\('
+    equation = re.sub(pattern_and, f'{_AND_FUNC_REPLACEMENT}(', equation)
+    
+    return equation
+
+
+def _transform_ast_keyword_calls(node: ast.AST) -> ast.AST:
+    """
+    Transform AST to rename temporary function identifiers back to their keyword names.
+    
+    Transforms:
+    - '__IF_FUNC__' -> 'if'
+    - '__OR_FUNC__' -> 'or'
+    - '__AND_FUNC__' -> 'and'
+    
+    Args:
+        node: AST node to transform
+        
+    Returns:
+        Transformed AST node (same object, modified in place)
+    """
+    if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Name):
+            if node.func.id == _IF_FUNC_REPLACEMENT:
+                node.func.id = "if"
+            elif node.func.id == _OR_FUNC_REPLACEMENT:
+                node.func.id = "or"
+            elif node.func.id == _AND_FUNC_REPLACEMENT:
+                node.func.id = "and"
+    
+    # Recursively transform child nodes
+    for child in ast.iter_child_nodes(node):
+        _transform_ast_keyword_calls(child)
+    
+    return node
 
 
 class SafeEquationEvaluator:
@@ -93,6 +164,10 @@ class SafeEquationEvaluator:
         # Rounding
         "ceil": math.ceil,
         "floor": math.floor,
+        # Conditional functions
+        "if": lambda condition, value_if_true, value_if_false: float(value_if_true) if condition else float(value_if_false),
+        "or": lambda *args: 1.0 if any(bool(arg) for arg in args) else 0.0,
+        "and": lambda *args: 1.0 if all(bool(arg) for arg in args) else 0.0,
     }
 
     # System dynamics functions that require special handling
@@ -154,23 +229,28 @@ class SafeEquationEvaluator:
             EvaluationError: If equation syntax is invalid
         """
         # Strip whitespace before parsing to handle edge cases (leading/trailing whitespace)
-        equation = equation.strip()
-        cache_key = equation
+        original_equation = equation.strip()
+        cache_key = original_equation
         
         if use_cache and cache_key in self._ast_cache:
             return self._ast_cache[cache_key]
 
+        # Preprocess to handle 'if' keyword
+        preprocessed_equation = _preprocess_equation(original_equation)
+
         try:
-            tree = ast.parse(equation, mode="eval")
+            tree = ast.parse(preprocessed_equation, mode="eval")
+            # Transform AST to rename temporary identifiers back to keywords
+            _transform_ast_keyword_calls(tree)
             if use_cache:
                 self._ast_cache[cache_key] = tree
             return tree
         except SyntaxError as e:
             raise EvaluationError(
                 code="syntax_error",
-                message=f"Syntax error in equation: {equation}. {str(e)}",
+                message=f"Syntax error in equation: {original_equation}. {str(e)}",
                 element_id=element_id,
-                equation=equation,
+                equation=original_equation,
             ) from e
 
     def eval_node(self, node: ast.AST, element_id: Optional[str] = None) -> Any:
@@ -325,6 +405,16 @@ class SafeEquationEvaluator:
 
         # Evaluate arguments for other functions
         args = [self.eval_node(arg, element_id) for arg in node.args]
+
+        # Handle conditional function 'if' with argument validation
+        if func_name == "if":
+            if len(args) != 3:
+                raise EvaluationError(
+                    code="invalid_argument_count",
+                    message="if() requires exactly 3 arguments: if(condition, value_if_true, value_if_false)",
+                    element_id=element_id,
+                )
+            return self.SAFE_FUNCTIONS["if"](args[0], args[1], args[2])
 
         if func_name_upper == "DELAY1":
             return self._eval_delay1(args, node, element_id)
@@ -803,7 +893,11 @@ def build_dependency_graph(
             continue
 
         try:
-            tree = ast.parse(element.equation, mode="eval")
+            # Preprocess to handle 'if' keyword
+            preprocessed_equation = _preprocess_equation(element.equation)
+            tree = ast.parse(preprocessed_equation, mode="eval")
+            # Transform AST to rename temporary identifiers back to keywords
+            _transform_ast_keyword_calls(tree)
             referenced_vars = extract_variable_references(tree)
 
             for var_name in referenced_vars:
@@ -976,7 +1070,11 @@ def validate_equation_references(
         Tuple of (is_valid, list_of_undefined_variables)
     """
     try:
-        tree = ast.parse(equation, mode="eval")
+        # Preprocess to handle 'if' keyword
+        preprocessed_equation = _preprocess_equation(equation)
+        tree = ast.parse(preprocessed_equation, mode="eval")
+        # Transform AST to rename __IF_FUNC__ back to if
+        _transform_ast_keyword_calls(tree)
         referenced = extract_variable_references(tree)
 
         undefined = []
